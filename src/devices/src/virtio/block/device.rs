@@ -290,6 +290,8 @@ impl Block {
 
         let mut avail_features = (1u64 << VIRTIO_F_VERSION_1)
             | (1u64 << VIRTIO_BLK_F_SEG_MAX)
+            | (1u64 << VIRTIO_BLK_F_DISCARD)
+            | (1u64 << VIRTIO_BLK_F_WRITE_ZEROES)
             | (1u64 << VIRTIO_RING_F_EVENT_IDX);
 
         if sync_mode != SyncMode::None {
@@ -298,9 +300,7 @@ impl Block {
 
         if is_disk_read_only {
             avail_features |= 1u64 << VIRTIO_BLK_F_RO;
-        } else {
-            avail_features |= (1u64 << VIRTIO_BLK_F_DISCARD) | (1u64 << VIRTIO_BLK_F_WRITE_ZEROES);
-        }
+        };
 
         let config = VirtioBlkConfig {
             capacity: disk_properties.nsectors(),
