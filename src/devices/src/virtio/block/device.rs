@@ -253,7 +253,7 @@ impl Block {
         #[cfg(target_os = "macos")]
         let file_opts = file_opts.relaxed_sync(sync_mode == SyncMode::Relaxed);
         let file = ImagoFile::open_sync(file_opts)?;
-        let discard_alignment = file.discard_align();
+        let mut discard_alignment = file.discard_align();
 
         let disk_image = match disk_image_format {
             ImageType::Qcow2 => {
@@ -263,6 +263,8 @@ impl Block {
                         !is_disk_read_only,
                     )?;
                 qcow2.open_implicit_dependencies_sync()?;
+                // qcow2 only frees whole clusters; smaller discards are dropped.
+                discard_alignment = discard_alignment.max(qcow2.cluster_size());
                 SyncFormatAccess::new(qcow2)?
             }
             ImageType::Raw => {
@@ -288,8 +290,6 @@ impl Block {
 
         let mut avail_features = (1u64 << VIRTIO_F_VERSION_1)
             | (1u64 << VIRTIO_BLK_F_SEG_MAX)
-            | (1u64 << VIRTIO_BLK_F_DISCARD)
-            | (1u64 << VIRTIO_BLK_F_WRITE_ZEROES)
             | (1u64 << VIRTIO_RING_F_EVENT_IDX);
 
         if sync_mode != SyncMode::None {
@@ -298,7 +298,9 @@ impl Block {
 
         if is_disk_read_only {
             avail_features |= 1u64 << VIRTIO_BLK_F_RO;
-        };
+        } else {
+            avail_features |= (1u64 << VIRTIO_BLK_F_DISCARD) | (1u64 << VIRTIO_BLK_F_WRITE_ZEROES);
+        }
 
         let config = VirtioBlkConfig {
             capacity: disk_properties.nsectors(),
