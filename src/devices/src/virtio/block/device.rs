@@ -253,7 +253,7 @@ impl Block {
         #[cfg(target_os = "macos")]
         let file_opts = file_opts.relaxed_sync(sync_mode == SyncMode::Relaxed);
         let file = ImagoFile::open_sync(file_opts)?;
-        let mut discard_alignment = file.discard_align();
+        let discard_alignment = file.discard_align();
 
         let disk_image = match disk_image_format {
             ImageType::Qcow2 => {
@@ -263,8 +263,6 @@ impl Block {
                         !is_disk_read_only,
                     )?;
                 qcow2.open_implicit_dependencies_sync()?;
-                // qcow2 only frees whole clusters; smaller discards are dropped.
-                discard_alignment = discard_alignment.max(qcow2.cluster_size());
                 SyncFormatAccess::new(qcow2)?
             }
             ImageType::Raw => {
